@@ -20,6 +20,50 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 {
 	int nRetCode = 0;
 
+	LPCTSTR nIP;
+	UINT nPort;
+	int nMaxConnect;
+	int nMaxMessenger;
+	int nNowConnect = 0;
+
+	//readConfig(nIP, nPort, nMaxConnect, nMaxMessenger);
+	string line;
+	int i = 0;
+
+	ifstream fileConfig;
+
+	fileConfig.open("config.ini");
+
+	if (fileConfig.is_open())
+	{
+		while (getline(fileConfig,line) )
+		{
+			if (i == 0)
+			{
+				CA2T tempIP(line.c_str());
+				nIP = tempIP;
+			}else if (i == 1)
+			{
+				nPort = stoi(line);
+			} else if (i == 2)
+			{
+				nMaxConnect = stoi(line);
+			} else if (i == 3)
+			{
+				nMaxMessenger = stoi(line);
+			}
+
+			i++;
+		}
+		fileConfig.close();
+	}
+
+	else 
+	{
+		cout << "Unable to open fileConfig";
+	}
+	//////////////////////////////////////////////////////////////////////////
+
 	HMODULE hModule = ::GetModuleHandle(NULL);
 
 	if (hModule != NULL)
@@ -36,7 +80,11 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			// TODO: code your application's behavior here.
 			//////////////////////////////////////////////////////////////////////////
 			// Init socket in Windows
-			AfxSocketInit(NULL);
+			if (AfxSocketInit(NULL) == FALSE)
+			{
+				cout << "Init socket libraray fail!!! \n"; 
+				return false;
+			}
 
 			//Create Socket Client
 			CSocket client;
@@ -45,10 +93,17 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			client.Create();
 
 			//Connect server
-			client.Connect(_T("127.0.0.1"), 12345);
+			if (client.Connect(nIP, nPort) != 0)
+			{
+				int id;
+
+				client.Receive(&id, sizeof(id), 0);
+
+				cout << "Client " << id + 1 << " Connect server sucess!!! \n";
+			} 
 
 			//Init var
-			char msg[100];
+			char* msg = new char [nMaxMessenger];
 			int len = 0;
 
 			//Begin chat
@@ -78,6 +133,7 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 
 				//Delete temp object
 				delete temp;
+				delete msg;
 			}
 
 			client.Close();

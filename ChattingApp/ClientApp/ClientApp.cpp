@@ -34,6 +34,55 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 		else
 		{
 			// TODO: code your application's behavior here.
+			//////////////////////////////////////////////////////////////////////////
+			// Init socket in Windows
+			AfxSocketInit(NULL);
+
+			//Create Socket Client
+			CSocket client;
+
+			//Init Socket
+			client.Create();
+
+			//Connect server
+			client.Connect(_T("127.0.0.1"), 12345);
+
+			//Init var
+			char msg[100];
+			int len = 0;
+
+			//Begin chat
+			while (true)
+			{
+				//Client send message
+				cout << "Client says: ";
+				gets(msg);
+				len = strlen(msg);
+
+				//Send a message to Server
+				client.Send(&len, sizeof(int), 0);
+				client.Send(msg, len, 0);
+
+				client.Receive(&len, sizeof(int), 0);
+
+				//Init temp
+				char* temp = new char[len + 1];
+
+				//Receive meassge
+				client.Receive(temp, len, 0);
+
+				temp[len] = 0;//Ending char
+
+				//Display meassge
+				cout << "Server says: " << temp << "\n";
+
+				//Delete temp object
+				delete temp;
+			}
+
+			client.Close();
+
+			//////////////////////////////////////////////////////////////////////////
 
 		}
 	}

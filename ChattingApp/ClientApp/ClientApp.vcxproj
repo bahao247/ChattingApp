@@ -74,9 +74,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <None Include="ReadMe.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="ClientApp.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />

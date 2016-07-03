@@ -93,53 +93,55 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			client.Create();
 
 			//Connect server
-			if (client.Connect(nIP, nPort) != 0)
+			if (client.Connect(_T("127.0.0.1"), nPort) != 0)
 			{
+				cout << "Connect server sucess!!!" << endl;
+				//Init var
+				char *msg = new char [nMaxMessenger];
+				int len;
+				char *temp;
+
 				int id;
 
-				client.Receive(&id, sizeof(id), 0);
+				client.Receive((char *) &id, sizeof(id), 0);
 
-				cout << "Client " << id + 1 << " Connect server sucess!!! \n";
-			} 
+				cout << "Client [" << id << "] connect server sucess!!! \n";
+			
+				//Begin chat
+				while (true)
+				{
+					//Client send message
+					cout << "Client [" << id <<"] says: ";
+					cin.getline(msg,100);
+					len = strlen(msg);
 
-			//Init var
-			char* msg = new char [nMaxMessenger];
-			int len = 0;
+					//Send a message to Server
+					client.Send(&len, sizeof(int), 0);
+					client.Send(msg, len, 0);
 
-			//Begin chat
-			while (true)
-			{
-				//Client send message
-				cout << "Client says: ";
-				gets(msg);
-				len = strlen(msg);
+					//Receive a message to Server
+					client.Receive((char*) &len, sizeof(int), 0);
 
-				//Send a message to Server
-				client.Send(&len, sizeof(int), 0);
-				client.Send(msg, len, 0);
+					//Init temp
+					temp = new char[len + 1];
 
-				client.Receive(&len, sizeof(int), 0);
+					//Receive meassge
+					client.Receive((char*) temp, len, 0);
 
-				//Init temp
-				char* temp = new char[len + 1];
+					temp[len] = '\0';//Ending char
 
-				//Receive meassge
-				client.Receive(temp, len, 0);
-
-				temp[len] = 0;//Ending char
-
-				//Display meassge
-				cout << "Server says: " << temp << "\n";
+					//Display meassge
+					cout << "Server says: " << temp << "\n";
+				}
 
 				//Delete temp object
 				delete temp;
 				delete msg;
+
+				client.Close();
+
+				//////////////////////////////////////////////////////////////////////////
 			}
-
-			client.Close();
-
-			//////////////////////////////////////////////////////////////////////////
-
 		}
 	}
 	else

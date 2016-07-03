@@ -112,74 +112,83 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 
 			cout << "Waiting for Client!!! \n";
 
-			for (int i = 0; i < nMaxConnect && nNowConnect <= nMaxConnect; i++)
-			{
-				//Accept connect from Client
-				if (server.Accept(client[i]))
-				{
-					cout << "Client [" << i + 1 << "] connected!!! \n";
-					nNowConnect++;
-					if (nNowConnect == nMaxConnect)
-					{
-						cout << "Full connect Server!!! \n";
-					}
-				}
-			}
-
 			//Init var
 			char *msg =  new char [nMaxMessenger];
-			int len = 0;
-
-			//Begin chat
-			while (true)
+			int len;
+			char* temp;
+ 
+ 			//Begin chat
+ 			while (true)
 			{
-				int i = 0;
-				for (i = 0; i < nMaxConnect; i++)
+				if (nNowConnect == nMaxConnect)
 				{
-					if (client[i] != NULL)
-					{
-						//Recive message
-						client[i].Receive(&len, sizeof(int), 0);
-
-						//Init temp
-						char* temp = new char[len + 1];
-
-						client[i].Receive(temp, len, 0);
-
-						temp[len] = 0;//Ending char
-
-						//Display meassge
-						cout << "Client[" << i + 1 <<"] says: " << temp << "\n";
-
-						//Delete temp object
-						delete temp;
-						delete msg;
-					}
-					else
-					{
-						client[i].ShutDown(2);
-						break;
-					}
+					cout << "Full connect Server!!! \n";
+					goto Chatting;
 				}
 
-
-				for (int i = 0; i < nMaxConnect; i++)
+				for (int nClient = nNowConnect; nClient < nMaxConnect; nClient++)
 				{
-					cout << "Client [" << i << "]: ";
-					cin.getline(msg, 100);
-					len = strlen(msg);
+					//Accept connect from Client
+					if (server.Accept(client[nClient]))
+					{
+						cout << "Client [" << nClient + 1 << "] connected!!! \n";
+						
+						//Inc nNowConnect
+						nNowConnect++;
 
-					//Send a message to Client
-					client [i].Send(&len, sizeof(int), 0);
-					client [i].Send(msg, len, 0);
-				}	
-			}
+						//Send nNowConnect to Client
+						client [nClient].Send(&nNowConnect, sizeof(int), 0);
+						goto Chatting;
+					
+					//Label Chatting
+					Chatting:
+						//Recive message
+						for (int nClientCount = 0; nClientCount < nNowConnect; nClientCount++)
+						{
+							if (client[nClientCount] != NULL)
+							{
+								//Receive message from Client
+								client[nClientCount].Receive((char *) &len, sizeof(int), 0);
+
+								//Init temp
+								temp = new char[len + 1];
+
+								client[nClientCount].Receive((char *) temp, len, 0);
+
+								temp[len] = '\0';//Ending char
+
+								//Display meassge
+								cout << "Client[" << nClientCount + 1 <<"] says: " << temp << "\n";
+							}
+							else
+							{
+								client[nClientCount].ShutDown(2);
+								break;
+							}
+						}//end for
+
+						for (int i = 0; i < nNowConnect; i++)
+						{
+							cout << "Server say with Client [" << i + 1 << "]: ";
+							cin.getline(msg, 100);
+							len = strlen(msg);
+
+							//Send a message to Client
+							client [i].Send(&len, sizeof(int), 0);
+							client [i].Send(msg, len, 0);
+						}//end for
+					}//end if
+				}//end for
+			}//end while
+
+			//Delete temp object
+			delete temp;
 			for (int i = 0; i < nNowConnect; i++)
 			{
 				client[i].Close();
 			}
-
 			delete client;
+			
 //////////////////////////////////////////////////////////////////////////
 		}
 

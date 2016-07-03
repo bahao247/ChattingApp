@@ -25,6 +25,8 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	int nMaxConnect;
 	int nMaxMessenger;
 	int nNowConnect = 0;
+	int id = 0;
+	int idArray[100];
 
 	//readConfig(nIP, nPort, nMaxConnect, nMaxMessenger);
 	string line;
@@ -88,9 +90,9 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 
 			//Create Socket Server and Client
 			CSocket server;
-			CSocket* client = new CSocket [nMaxConnect];
+			CSocket* client = new CSocket [10];
 
-			//Init Socket with port = 12345
+			//Init Socket with port = nPort
 			if (server.Create(nPort,SOCK_STREAM,NULL) == 0)
 			{
 				cout << "Init Socket fail!!! \n";
@@ -115,74 +117,106 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			//Init var
 			char *msg =  new char [nMaxMessenger];
 			int len;
-			char* temp;
  
  			//Begin chat
  			while (true)
 			{
+				int nClientCount = 0;
 				if (nNowConnect == nMaxConnect)
 				{
-					cout << "Full connect Server!!! \n";
+					cout << "Server is full. Waiting, please!!!\n";
 					goto Chatting;
 				}
 
-				for (int nClient = nNowConnect; nClient < nMaxConnect; nClient++)
+				for (id; nNowConnect < nMaxConnect;)
 				{
 					//Accept connect from Client
-					if (server.Accept(client[nClient]))
+					if (server.Accept(client[id]))
 					{
-						cout << "Client [" << nClient + 1 << "] connected!!! \n";
+						cout << "Client [" << id + 1 << "] connected!!!\n";
 						
 						//Inc nNowConnect
 						nNowConnect++;
 
-						//Send nNowConnect to Client
-						client [nClient].Send(&nNowConnect, sizeof(int), 0);
+						//Send id to Client
+						client [id].Send(&id, sizeof(int), 0);
+						
+						//Inc id
+						idArray[id] = 1;
+						id++;
+
 						goto Chatting;
 					
 					//Label Chatting
 					Chatting:
 						//Recive message
-						for (int nClientCount = 0; nClientCount < nNowConnect; nClientCount++)
+						for (nClientCount; nClientCount < id; nClientCount++)
 						{
-							if (client[nClientCount] != NULL)
+							if (client[nClientCount] != NULL && idArray[nClientCount] == 1)
 							{
+								len = 0;
 								//Receive message from Client
 								client[nClientCount].Receive((char *) &len, sizeof(int), 0);
 
 								//Init temp
-								temp = new char[len + 1];
+								char* temp = new char[len + 1];
 
 								client[nClientCount].Receive((char *) temp, len, 0);
 
 								temp[len] = '\0';//Ending char
 
+								if (temp == NULL || len == 0)
+								{
+									idArray[nClientCount] = 0;
+									nNowConnect--;
+									cout << "Client[" << nClientCount + 1 <<"] offline!!!\a\n";
+									
+									//Send a message to Client
+									temp = "I'm offline. Nice to see you!";
+
+									//temp[len] = '\0';//Ending char
+									
+									for (int i = 0; i < id; i++)
+									{
+										if (i != nClientCount && idArray[i] == 1)
+										{
+											client [i].Send(&len, sizeof(int), 0);
+											client [i].Send(temp, len, 0);
+
+											//Send nClientCount to Client
+											client [i].Send(&nClientCount, sizeof(int), 0);
+										}
+
+									}//end for
+
+									continue;
+								}
+
+								for (int i = 0; i < id; i++)
+								{
+									if (i != nClientCount && idArray[i] == 1)
+									{
+										//Send a message to Client
+										client [i].Send(&len, sizeof(int), 0);
+										client [i].Send(temp, len, 0);
+										
+										//Send nClientCount to Client
+										client [i].Send(&nClientCount, sizeof(int), 0);
+									}
+									
+								}//end for
+
 								//Display meassge
-								cout << "Client[" << nClientCount + 1 <<"] says: " << temp << "\n";
-							}
-							else
-							{
-								client[nClientCount].ShutDown(2);
-								break;
-							}
-						}//end for
+								cout << "Client[" << nClientCount + 1 <<"] says: " << temp << ".\a\n";
 
-						for (int i = 0; i < nNowConnect; i++)
-						{
-							cout << "Server say with Client [" << i + 1 << "]: ";
-							cin.getline(msg, 100);
-							len = strlen(msg);
-
-							//Send a message to Client
-							client [i].Send(&len, sizeof(int), 0);
-							client [i].Send(msg, len, 0);
+								//Delete temp object
+								delete temp;
+							}
 						}//end for
 					}//end if
 				}//end for
 			}//end while
 
-			//Delete temp object
-			delete temp;
 			for (int i = 0; i < nNowConnect; i++)
 			{
 				client[i].Close();

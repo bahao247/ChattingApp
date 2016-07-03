@@ -105,13 +105,13 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 
 				client.Receive((char *) &id, sizeof(id), 0);
 
-				cout << "Client [" << id << "] connect server sucess!!! \n";
-			
+				cout << "Client [" << id + 1 << "] connect server sucess!!! \n";
+
 				//Begin chat
 				while (true)
 				{
 					//Client send message
-					cout << "Client [" << id <<"] says: ";
+					cout << "Client [" << id + 1 <<"] says: \a";
 					cin.getline(msg,100);
 					len = strlen(msg);
 
@@ -131,7 +131,10 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 					temp[len] = '\0';//Ending char
 
 					//Display meassge
-					cout << "Server says: " << temp << "\n";
+					int nClientCount;
+					client.Receive((char *) &nClientCount, sizeof(nClientCount), 0);
+
+					cout << "Client[" << nClientCount + 1 <<"] says: " << temp << "\n\a";
 				}
 
 				//Delete temp object

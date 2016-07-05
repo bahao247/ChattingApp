@@ -93,7 +93,7 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			client.Create();
 
 			//Connect server
-			if (client.Connect(_T("127.0.0.1"), nPort) != 0)
+			if (client.Connect(nIP, nPort) != 0)
 			{
 				cout << "Connect server sucess!!!" << endl;
 				//Init var

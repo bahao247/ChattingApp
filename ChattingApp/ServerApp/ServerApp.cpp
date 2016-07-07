@@ -16,25 +16,21 @@ CWinApp theApp;
 
 using namespace std;
 
-int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
+//////////////////////////////////////////////////////////////////////////
+//
+//Function Region
+//
+//////////////////////////////////////////////////////////////////////////
+//Read file config
+void readConfig(char* file)
 {
-	int nRetCode = 0;
-	
-	LPCTSTR nIP;
-	UINT nPort;
-	int nMaxConnect;
-	int nMaxMessenger;
-	int nNowConnect = 0;
-	int id = 0;
-	int idArray[100];
-
-	//readConfig(nIP, nPort, nMaxConnect, nMaxMessenger);
-	string line;
-	int i = 0;
-
 	ifstream fileConfig;
 
-	fileConfig.open("config.ini");
+	fileConfig.open(file);
+
+	string line;
+
+	int i = 0;
 
 	if (fileConfig.is_open())
 	{
@@ -64,7 +60,173 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	{
 		cout << "Unable to open fileConfig";
 	}
+}
 //////////////////////////////////////////////////////////////////////////
+//Init socket
+bool initSocket(CSocket &server)
+{
+	//Init Socket with port, type, flag
+	if (server.Create(nPort,SOCK_STREAM,_T("127.0.0.1")) == 0)
+	{
+		cout << "Init Socket fail!!! \n";
+		cout << server.GetLastError();
+		return 0;
+	} 
+	else
+	{
+		cout << "Server init sucess!!! \n";
+	}
+
+	return true;
+}
+//////////////////////////////////////////////////////////////////////////
+
+//Listen Connect
+bool listenConnect(CSocket &server)
+{
+	//Listen connect from client
+	if (server.Listen(1) == FALSE)
+	{
+		cout << "Do not listen on port!!! \n";
+		server.Close();
+		return false;
+	}
+	return true;
+}
+//////////////////////////////////////////////////////////////////////////
+
+//Accept Connect
+bool acceptConnect(CSocket &server, CSocket* client, int &id, int idArray[])
+{
+	try
+	{
+		server.Accept(client[id]);
+
+		cout << "Client [" << id + 1 << "] connected!!!\n";
+
+		//Inc nNowConnect
+		nNowConnect++;
+
+		//Send id to Client
+		client [id].Send(&id, sizeof(int), 0);
+
+		//Inc id
+		idArray[id] = 1;
+		id++;
+
+		return true;
+	}
+	catch (int e)
+	{
+		return true;
+	}
+}
+//////////////////////////////////////////////////////////////////////////
+//Check full roomchat
+bool checkNowConnect()
+{
+	if (nNowConnect == nMaxConnect)
+	{
+		cout << "Server is full. Waiting, please!!!\n";
+		return false;
+	}
+	return true;
+}
+//////////////////////////////////////////////////////////////////////////
+//Send Packet
+void sendPacket(CSocket* client, int &nClientCount, int nid, int rid, int &len, char* temp)
+{
+	for (int i = 0; i < id; i++)
+	{
+		if ((i != nid && idArray[i] != 0) || rid == 111)
+		{
+			client [i].Send(&len, sizeof(int), 0);
+			client [i].Send(temp, len, 0);
+
+			//Send nClientCount to Client
+			client [i].Send(&nid, sizeof(int), 0);
+		}
+	}
+
+	//Display meassge
+	cout << "Client[" << nClientCount + 1 <<"] says: " << temp << ".\a\n";
+}
+//////////////////////////////////////////////////////////////////////////
+//Chatting Packet
+void chattingConnect(CSocket* client, int &nClientCount)
+{
+	int len = 0;
+	int rid = 111;
+	int nid = 0;
+
+	//Receive id and rid
+	client[nClientCount].Receive((char *) &nid, sizeof(int), 0);
+	client[nClientCount].Receive((char *) &rid, sizeof(int), 0);
+
+	idArray[nid] = rid + 2;
+
+	//Receive message from Client
+	client[nClientCount].Receive((char *) &len, sizeof(int), 0);
+
+	//Init temp
+	char* temp = new char[len + 1];
+
+	client[nClientCount].Receive((char *) temp, len, 0);
+
+	temp[len] = '\0';//Ending char
+
+	if (temp == NULL || len == 0)
+	{
+		idArray[nid] = 0;
+		nNowConnect--;
+		cout << "Client[" << nid + 1 <<"] offline!!!\a\n";
+
+		//Send a message to Client
+		temp = "I'm offline. Nice to see you!";
+
+		for (int i = 0; i < id; i++)
+		{
+			if ((i != nid && idArray[i] != 0) || rid == 111)
+			{
+				client [i].Send(&len, sizeof(int), 0);
+				client [i].Send(temp, len, 0);
+
+				//Send nClientCount to Client
+				client [i].Send(&nid, sizeof(int), 0);
+			}
+		}
+
+		//Display meassge
+		cout << "Client[" << nClientCount + 1 <<"] says: " << temp << ".\a\n";
+
+				sendPacket(client, nClientCount, nid, rid, len, temp);
+	}
+	sendPacket(client, nClientCount, nid, rid, len, temp);
+
+	delete temp;
+}
+//////////////////////////////////////////////////////////////////////////
+//Destruc
+void destroyConnect(CSocket* client, CSocket &server)
+{
+	for (int i = 0; i < nNowConnect; i++)
+	{
+		client[i].Close();
+	}
+
+	server.Close();
+	delete client;
+}
+//////////////////////////////////////////////////////////////////////////
+//Main
+int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
+{
+	int nRetCode = 0;
+
+	//PTR TuanNA [readConfig- [7/7/2016]]
+	readConfig("config.ini");
+
+	//////////////////////////////////////////////////////////////////////////
 	HMODULE hModule = ::GetModuleHandle(NULL);
 
 	if (hModule != NULL)
@@ -79,9 +241,8 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 		else
 		{
 			// TODO: code your application's behavior here.
-//////////////////////////////////////////////////////////////////////////
-			// Init socket in Windows
-			
+			//////////////////////////////////////////////////////////////////////////
+			//PTR TuanNA [Init socket in Windows- [7/7/2016]]
 			if (AfxSocketInit(NULL) == FALSE)
 			{
 				cout << "Init socket libraray fail!!! \n"; 
@@ -92,140 +253,46 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			CSocket server;
 			CSocket* client = new CSocket [10];
 
-			//Init Socket with port = nPort
-			if (server.Create(nPort,SOCK_STREAM,NULL) == 0)
+			//PTR TuanNA [Init Socket with port, type, flag And Listen connect- [7/7/2016]]
+			if (initSocket(server) && listenConnect(server))
 			{
-				cout << "Init Socket fail!!! \n";
-				cout << server.GetLastError();
-				return 0;
-			} 
+				cout << "Waiting for Client!!! \n";
+			}
 			else
 			{
-				cout << "Server init sucess!!! \n";
-			}
-
-			//Listen connect from client
-			if (server.Listen(1) == FALSE)
-			{
-				cout << "Do not listen on port!!! \n";
-				server.Close();
 				return false;
 			}
 
-			cout << "Waiting for Client!!! \n";
-
-			//Init var
-			char *msg =  new char [nMaxMessenger];
-			int len;
- 
- 			//Begin chat
- 			while (true)
+			//PTR TuanNA [Begin chat while- [7/7/2016]]
+			while (true)
 			{
 				int nClientCount = 0;
-				if (nNowConnect == nMaxConnect)
+				//PTR TuanNA [Check client in roomchat,  [7/7/2016]]
+				if (checkNowConnect())
 				{
-					cout << "Server is full. Waiting, please!!!\n";
-					goto Chatting;
-				}
-
-				for (id; nNowConnect < nMaxConnect;)
-				{
-					//Accept connect from Client
-					if (server.Accept(client[id]))
+					for (id; nNowConnect < nMaxConnect;)
 					{
-						cout << "Client [" << id + 1 << "] connected!!!\n";
-						
-						//Inc nNowConnect
-						nNowConnect++;
-
-						//Send id to Client
-						client [id].Send(&id, sizeof(int), 0);
-						
-						//Inc id
-						idArray[id] = 1;
-						id++;
-
-						goto Chatting;
-					
-					//Label Chatting
-					Chatting:
-						//Recive message
-						for (nClientCount; nClientCount < id; nClientCount++)
+						//PTR TuanNA [Accept connect from Client- [7/7/2016]]
+						if (acceptConnect(server, client, id, idArray))
 						{
-							if (client[nClientCount] != NULL && idArray[nClientCount] == 1)
+							for (nClientCount; nClientCount < id; nClientCount++)
 							{
-								len = 0;
-								//Receive message from Client
-								client[nClientCount].Receive((char *) &len, sizeof(int), 0);
-
-								//Init temp
-								char* temp = new char[len + 1];
-
-								client[nClientCount].Receive((char *) temp, len, 0);
-
-								temp[len] = '\0';//Ending char
-
-								if (temp == NULL || len == 0)
+								if (client[nClientCount] != NULL && idArray[nClientCount] != 0)
 								{
-									idArray[nClientCount] = 0;
-									nNowConnect--;
-									cout << "Client[" << nClientCount + 1 <<"] offline!!!\a\n";
-									
-									//Send a message to Client
-									temp = "I'm offline. Nice to see you!";
-
-									//temp[len] = '\0';//Ending char
-									
-									for (int i = 0; i < id; i++)
-									{
-										if (i != nClientCount && idArray[i] == 1)
-										{
-											client [i].Send(&len, sizeof(int), 0);
-											client [i].Send(temp, len, 0);
-
-											//Send nClientCount to Client
-											client [i].Send(&nClientCount, sizeof(int), 0);
-										}
-
-									}//end for
-
-									continue;
+									//PTR TuanNA [Receicve and Send Packet with Client- [7/7/2016]]
+									chattingConnect(client, nClientCount);
 								}
+							}//end for
+						}//end if
 
-								for (int i = 0; i < id; i++)
-								{
-									if (i != nClientCount && idArray[i] == 1)
-									{
-										//Send a message to Client
-										client [i].Send(&len, sizeof(int), 0);
-										client [i].Send(temp, len, 0);
-										
-										//Send nClientCount to Client
-										client [i].Send(&nClientCount, sizeof(int), 0);
-									}
-									
-								}//end for
 
-								//Display meassge
-								cout << "Client[" << nClientCount + 1 <<"] says: " << temp << ".\a\n";
-
-								//Delete temp object
-								delete temp;
-							}
-						}//end for
-					}//end if
-				}//end for
+					}//end for
+				}
 			}//end while
-
-			for (int i = 0; i < nNowConnect; i++)
-			{
-				client[i].Close();
-			}
-			delete client;
 			
-//////////////////////////////////////////////////////////////////////////
+			//PTR TuanNA [destroyConnect- [7/7/2016]]
+			destroyConnect(client, server);
 		}
-
 	}
 	else
 	{

@@ -15,24 +15,21 @@
 CWinApp theApp;
 
 using namespace std;
-
-int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
+//////////////////////////////////////////////////////////////////////////
+//
+//Function Region
+//
+//////////////////////////////////////////////////////////////////////////
+//Read file config
+void readConfig(char* file)
 {
-	int nRetCode = 0;
-
-	LPCTSTR nIP;
-	UINT nPort;
-	int nMaxConnect;
-	int nMaxMessenger;
-	int nNowConnect = 0;
-
-	//readConfig(nIP, nPort, nMaxConnect, nMaxMessenger);
-	string line;
-	int i = 0;
-
 	ifstream fileConfig;
 
-	fileConfig.open("config.ini");
+	fileConfig.open(file);
+
+	string line;
+
+	int i = 0;
 
 	if (fileConfig.is_open())
 	{
@@ -62,6 +59,110 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	{
 		cout << "Unable to open fileConfig";
 	}
+}
+//////////////////////////////////////////////////////////////////////////
+//Init socket
+bool initSocket(CSocket client)
+{
+	//Connect server
+	if (client.Connect(_T("127.0.0.1"), nPort) != 0)
+	{
+		cout << "Connect server sucess!!!" << endl;
+		
+		//Init var
+		char *msg = new char [nMaxMessenger];
+		int len;
+		char *temp;
+
+		int id, rid;
+
+		client.Receive((char *) &id, sizeof(id), 0);
+
+		cout << "Client [" << id + 1 << "] connect server sucess!!! \n";
+	}
+
+	return true;
+}
+//////////////////////////////////////////////////////////////////////////
+//Check full roomchat
+bool checkNowConnect()
+{
+	if (nNowConnect == nMaxConnect)
+	{
+		cout << "Server is full. Waiting, please!!!\n";
+		return false;
+	}
+	return true;
+}
+//////////////////////////////////////////////////////////////////////////
+//Send Packet
+void sendPacket(CSocket &client, int &id, int &rid, int &len, char* msg)
+{
+	//Send a message to Server
+	client.Send(&id, sizeof(int), 0);
+
+	client.Send(&rid, sizeof(int), 0);
+
+	client.Send(&len, sizeof(int), 0);
+
+	client.Send(msg, len, 0);
+}
+//////////////////////////////////////////////////////////////////////////
+//Receive Packet
+void receivePacket(CSocket &client, int &id, int &rid, int &len)
+{
+	//Receive a message to Server
+	client.Receive((char*) &len, sizeof(int), 0);
+
+	//Init temp
+	char* temp = new char[len + 1];
+
+	//Receive meassge
+	client.Receive((char*) temp, len, 0);
+
+	temp[len + 1] = '\0';//Ending char
+
+	//Display meassge
+	int nClientCount;
+	client.Receive((char *) &nClientCount, sizeof(nClientCount), 0);
+
+	cout << "Client[" << nClientCount + 1 << "] says: " << temp << "\n\a";
+}
+//////////////////////////////////////////////////////////////////////////
+//Chatting Packet
+void selectIDM(int rid = 111)
+{
+	//Chatting with ID
+	cout << "Want to chat with ID? \n";
+	cin >> rid;
+}
+//////////////////////////////////////////////////////////////////////////
+//Chatting Packet
+void chattingClient(int &id, int &rid, char* msg, int &len)
+{
+	//Client send message
+	cout << "Client [" << id + 1 <<"] chatting with Client [" << rid + 1 <<"]:\a";
+	cin.getline(msg,100);
+	len = strlen(msg);
+}
+//////////////////////////////////////////////////////////////////////////
+//Destruc
+void destroyConnect(CSocket &client)
+{
+	//Delete temp object
+	//delete temp;
+	//delete msg;
+
+	client.Close();
+}
+//////////////////////////////////////////////////////////////////////////
+//Main
+int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
+{
+	int nRetCode = 0;
+
+	//PTR TuanNA [readConfig- [7/7/2016]]
+	readConfig("config.ini");
 	//////////////////////////////////////////////////////////////////////////
 
 	HMODULE hModule = ::GetModuleHandle(NULL);
@@ -93,15 +194,11 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			client.Create();
 
 			//Connect server
-			if (client.Connect(nIP, nPort) != 0)
+			if (client.Connect(_T("127.0.0.1"), nPort) != 0)
 			{
 				cout << "Connect server sucess!!!" << endl;
-				//Init var
-				char *msg = new char [nMaxMessenger];
-				int len;
-				char *temp;
-
-				int id;
+				
+				int id, rid;
 
 				client.Receive((char *) &id, sizeof(id), 0);
 
@@ -110,39 +207,24 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				//Begin chat
 				while (true)
 				{
-					//Client send message
-					cout << "Client [" << id + 1 <<"] says: \a";
-					cin.getline(msg,100);
-					len = strlen(msg);
+					//PTR TuanNA [ [7/7/2016]] SelectIDM
+					selectIDM(rid);
+
+					//Init var
+					char *msg = new char [nMaxMessenger];
+					int len;
+					
+					chattingClient(id, rid, msg, len);
+
+					char *temp = new char[len +1];
 
 					//Send a message to Server
-					client.Send(&len, sizeof(int), 0);
-					client.Send(msg, len, 0);
+					sendPacket(client, id, rid, len, temp);
 
 					//Receive a message to Server
-					client.Receive((char*) &len, sizeof(int), 0);
-
-					//Init temp
-					temp = new char[len + 1];
-
-					//Receive meassge
-					client.Receive((char*) temp, len, 0);
-
-					temp[len] = '\0';//Ending char
-
-					//Display meassge
-					int nClientCount;
-					client.Receive((char *) &nClientCount, sizeof(nClientCount), 0);
-
-					cout << "Client[" << nClientCount + 1 <<"] says: " << temp << "\n\a";
+					receivePacket(client, id, rid, len);
 				}
-
-				//Delete temp object
-				delete temp;
-				delete msg;
-
-				client.Close();
-
+				destroyConnect(client);
 				//////////////////////////////////////////////////////////////////////////
 			}
 		}

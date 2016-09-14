@@ -6,4 +6,5 @@ LPCTSTR nIP;
 UINT nPort;
 int nMaxConnect;
 int nMaxMessenger;
+//Add comment
 int nNowConnect = 0;
